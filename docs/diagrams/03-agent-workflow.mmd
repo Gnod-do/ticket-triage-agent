@@ -1,0 +1,27 @@
+%% Алгоритм агента по одному кластеру: 4 возможных исхода, ≤ 8 вызовов инструментов
+flowchart TB
+  classDef tool fill:#eaf4ff,stroke:#3d76a2,color:#1e3554
+  classDef dec fill:#fff2d9,stroke:#a66b17,color:#4d3210
+  classDef out fill:#e7f7ec,stroke:#3a9b5c,color:#1f4d30
+  classDef gate fill:#fde8e4,stroke:#b4472e,color:#5a1f12
+
+  S(["cluster_id, product_id"]) --> T1["get_cluster_stats<br/>N обращений, M клиентов, тренд"]:::tool
+  T1 --> T2["get_cluster_examples k=5<br/>тексты с псевдонимами E1..E5"]:::tool
+  T2 --> T3["get_cluster_history"]:::tool
+  T3 --> D1{"Команда уже отклоняла<br/>и роста нет?"}:::dec
+  D1 -->|"да"| L1["label_cluster"]:::out
+  D1 -->|"нет"| D2{"Сервисные запросы<br/>или несвязанные обращения?"}:::dec
+  D2 -->|"да"| L1
+  D2 -->|"нет"| T4["search_backlog"]:::tool
+  T4 --> D3{"Задача найдена?"}:::dec
+  D3 -->|"да"| L2["update_backlog_item<br/>только комментарий"]:::out
+  D3 -->|"нет"| T5["get_product_owner"]:::tool
+  T5 --> D4{"Владелец известен?"}:::dec
+  D4 -->|"нет"| L4["request_human_review"]:::out
+  D4 -->|"да"| T6["submit_digest_item"]:::tool
+  T6 --> G{{"PolicyGate"}}:::gate
+  G -->|"OK"| L3["Дайджест → outbox"]:::out
+  G -->|"нарушение"| D5{"Первая попытка?"}:::dec
+  D5 -->|"да: исправить"| T6
+  D5 -->|"нет"| L4
+  B["Бюджет: 8 вызовов.<br/>Превышен → request_human_review"]:::gate -.-> L4
