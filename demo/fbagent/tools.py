@@ -127,7 +127,8 @@ class ToolBox:
         for issue in self.backlog:
             if issue["product_id"] != product_id:
                 continue
-            overlap = len(q & set(tokenize(issue["title"]))) / max(1, len(q))
+            title = set(tokenize(issue["title"]))
+            overlap = len(q & title) / max(1, min(len(q), len(title)))  # overlap coefficient
             if overlap >= BACKLOG_MATCH_MIN:
                 hits.append({"key": issue["key"], "title": issue["title"], "status": issue.get("status", "open"),
                              "score": round(overlap, 2)})

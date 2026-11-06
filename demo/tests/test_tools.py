@@ -144,3 +144,10 @@ def test_digest_blocked_when_backlog_issue_found(box):
 
 def test_weak_backlog_match_is_ignored(box):
     assert box.search_backlog("webneft", "пароль выгрузка отчёт документы")["issues"] == []
+
+
+def test_long_query_still_matches_backlog(box):
+    hits = box.search_backlog("fuel_cards", "автоматическая блокировка карт после изменения лимитов")["issues"]
+    assert hits and hits[0]["key"] == "FC-118"
+    assert box.search_backlog("fuel_cards", "отчёт расход топлива не совпадает")["issues"] == []
+    assert box.search_backlog("fuel_cards", "установить лимиты по видам топлива")["issues"] == []
