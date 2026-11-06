@@ -1,19 +1,24 @@
 """Prompts (Russian). PROMPT_VERSION is part of the enrichment cache key."""
 
-PROMPT_VERSION = "v1"  # enrich prompt only; agent prompt changes do not invalidate the cache
+PROMPT_VERSION = "v2"  # enrich prompt only; agent prompt changes do not invalidate the cache
 
-ENRICH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "type": {"type": "string",
-                 "enum": ["bug", "feature_request", "service_request", "consultation", "other"]},
-        "feature": {"type": "string"},
-        "problem_summary": {"type": "string"},
-        "user_impact": {"type": "string", "enum": ["blocker", "degraded", "cosmetic"]},
-        "confidence": {"type": "number"},
-    },
-    "required": ["type", "feature", "problem_summary", "user_impact", "confidence"],
-}
+TYPE_ENUM = ["bug", "feature_request", "service_request", "consultation", "other"]
+
+
+def enrich_schema(features: list[str] | None) -> dict:
+    feature = {"type": "string", "enum": features} if features else {"type": "string"}
+    return {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "enum": TYPE_ENUM},
+            "feature": feature,
+            "problem_summary": {"type": "string"},
+            "user_impact": {"type": "string", "enum": ["blocker", "degraded", "cosmetic"]},
+            "confidence": {"type": "number"},
+        },
+        "required": ["type", "feature", "problem_summary", "user_impact", "confidence"],
+    }
+
 
 ENRICH_PROMPT = """Ты классифицируешь одно обращение в техподдержку цифрового продукта «Газпром нефти».
 Продукт обращения уже определён системой: {product_id}. Не меняй его.
@@ -23,14 +28,17 @@ ENRICH_PROMPT = """Ты классифицируешь одно обращени
 
 Определи:
 - type:
-  bug — что-то не работает так, как должно (ошибка, кнопка не реагирует, данные пропали);
-  feature_request — пользователь просит новую возможность или улучшение;
-  service_request — просьба выполнить операцию для клиента (изменить телефон в заявке,
-    перенести отгрузку, выпустить карту, выдать доступ) — это НЕ проблема продукта;
-  consultation — вопрос «как сделать / где найти»;
+  bug — что-то не работает так, как должно: ошибка, кнопка не реагирует, данные пропали или неверны,
+    не приходит SMS, приложение не показывает данные. Это bug, даже если клиент вежливо «просит разобраться»;
+  feature_request — пожелание НОВОЙ возможности или улучшения продукта для всех пользователей
+    («хотим сами менять лимиты в кабинете», «добавьте выгрузку в Excel»);
+  service_request — просьба к сотруднику выполнить операцию для КОНКРЕТНОГО клиента, карты или заявки:
+    изменить телефон в заявке, перенести или отменить отгрузку, выпустить или перевыпустить карту,
+    увеличить лимит по конкретной карте, выдать логин и пароль, сменить реквизиты. Это НЕ проблема продукта;
+  consultation — вопрос «как сделать / где найти / какие документы нужны»;
   other — не подходит ни один класс.
-- feature: короткий код функции латиницей в snake_case (например contract_offer,
-  electronic_queue, account_access, vehicle_registry, documents, billing, card_status, mobile_app).
+- feature — ровно один код из списка функций продукта:
+{features}
 - problem_summary: одно нейтральное предложение на русском о сути проблемы или пожелания,
   без персональных данных, названий компаний, номеров телефонов и карт.
 - user_impact: blocker — пользователь не может выполнить задачу; degraded — может, но с трудом;

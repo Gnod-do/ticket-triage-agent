@@ -64,3 +64,17 @@ def test_schema_passed_and_summary_masked():
 def test_enrich_all_returns_by_id():
     out = enrich_all([ticket(tid="A"), ticket(tid="B", text="другое")], fake(reply(), reply()), None)
     assert set(out) == {"A", "B"}
+
+
+def test_feature_is_constrained_to_product_taxonomy():
+    llm = fake(reply(feature="account_access"))
+    enrich_ticket(ticket(), llm, None)
+    call = llm.calls[0]
+    assert "account_access" in call["json_schema"]["properties"]["feature"]["enum"]
+    assert "card_status" not in call["json_schema"]["properties"]["feature"]["enum"]
+    assert "электронная очередь" in call["messages"][0]["content"]
+
+
+def test_feature_outside_taxonomy_becomes_other():
+    e = enrich_ticket(ticket(), fake(reply(feature="password_reset")), None)
+    assert e.feature == "other" and e.type == "bug"

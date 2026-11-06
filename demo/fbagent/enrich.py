@@ -7,12 +7,23 @@ import logging
 from dataclasses import asdict
 from pathlib import Path
 
+import yaml
+
 from .llm import LLMClient
 from .models import TICKET_TYPES, USER_IMPACTS, Enrichment, Ticket
 from .pii import mask_pii
-from .prompts import ENRICH_PROMPT, ENRICH_SCHEMA, PROMPT_VERSION
+from .prompts import ENRICH_PROMPT, PROMPT_VERSION, enrich_schema
 
 log = logging.getLogger(__name__)
+TAXONOMY_PATH = Path(__file__).resolve().parents[1] / "data" / "taxonomy.yaml"
+_TAXONOMY: dict | None = None
+
+
+def taxonomy() -> dict[str, dict[str, str]]:
+    global _TAXONOMY
+    if _TAXONOMY is None:
+        _TAXONOMY = yaml.safe_load(TAXONOMY_PATH.read_text(encoding="utf-8"))
+    return _TAXONOMY
 
 
 def _fallback(ticket_id: str, reason: str) -> Enrichment:
@@ -20,12 +31,15 @@ def _fallback(ticket_id: str, reason: str) -> Enrichment:
     return Enrichment(ticket_id, "other", "unknown", "", "degraded", 0.0)
 
 
-def _parse(ticket_id: str, content: str) -> Enrichment:
+def _parse(ticket_id: str, content: str, features: list[str] | None = None) -> Enrichment:
     try:
         d = json.loads(content)
         if d["type"] not in TICKET_TYPES or d["user_impact"] not in USER_IMPACTS:
             return _fallback(ticket_id, f"enum out of range: {d.get('type')}/{d.get('user_impact')}")
-        return Enrichment(ticket_id, d["type"], str(d["feature"]).strip() or "unknown",
+        feature = str(d["feature"]).strip() or "other"
+        if features and feature not in features:
+            feature = "other"
+        return Enrichment(ticket_id, d["type"], feature,
                           mask_pii(str(d["problem_summary"]).strip()), d["user_impact"],
                           max(0.0, min(1.0, float(d["confidence"]))))
     except (ValueError, KeyError, TypeError) as e:
@@ -39,9 +53,11 @@ def enrich_ticket(t: Ticket, llm: LLMClient, cache_dir: Path | None) -> Enrichme
     if cache_file and cache_file.exists():
         d = json.loads(cache_file.read_text(encoding="utf-8"))
         return Enrichment(**{**d, "ticket_id": t.ticket_id})
-    prompt = ENRICH_PROMPT.format(product_id=t.product_id, text=text)
-    resp = llm.chat([{"role": "user", "content": prompt}], json_schema=ENRICH_SCHEMA)
-    e = _parse(t.ticket_id, resp.get("content", ""))
+    feats = taxonomy().get(t.product_id)
+    listing = "\n".join(f"  {k} — {v}" for k, v in feats.items()) if feats else "  (свободный код латиницей)"
+    prompt = ENRICH_PROMPT.format(product_id=t.product_id, text=text, features=listing)
+    resp = llm.chat([{"role": "user", "content": prompt}], json_schema=enrich_schema(list(feats) if feats else None))
+    e = _parse(t.ticket_id, resp.get("content", ""), list(feats) if feats else None)
     if cache_file and e.confidence > 0:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(json.dumps(asdict(e), ensure_ascii=False), encoding="utf-8")

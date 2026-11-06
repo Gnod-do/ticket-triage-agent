@@ -1,0 +1,17 @@
+# Approved feature codes per product (spec R1). The backend passes the list for the ticket's
+# product_id; the model must pick one of them, so routing via owners.json is deterministic.
+webneft:
+  contract_offer: "заключение договора оферты, реквизиты и ОПФ организации"
+  account_access: "вход, пароль, SMS-коды, доступ к кабинету, пользователи и роли"
+  electronic_queue: "электронная очередь, бронирование времени налива"
+  vehicle_registry: "справочник транспорта, машины"
+  shipments: "отгрузки, статусы налива, уведомления об отгрузке"
+  documents: "УПД, акты сверки, счета-фактуры, выгрузка документов"
+  billing: "счета на оплату, оплата"
+  other: "ничего из перечисленного"
+fuel_cards:
+  card_status: "блокировка карт, ПИН-код, выпуск и перевыпуск карт"
+  mobile_app: "мобильное приложение, баланс и остатки в приложении"
+  limits: "лимиты по картам"
+  reports: "отчёты и выписки по транзакциям"
+  other: "ничего из перечисленного"
