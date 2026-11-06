@@ -1,0 +1,47 @@
+{
+ "model": "qwen3:8b",
+ "embed_model": "bge-m3",
+ "n_tickets": 369,
+ "run_at": "2026-11-06T21:26:02+00:00",
+ "enrich_s": 0.1,
+ "agent_s": 369.1,
+ "total_s": 381.7,
+ "usage": {
+  "prompt_tokens": 162613,
+  "completion_tokens": 5171,
+  "calls": 67
+ },
+ "n_alerts": 1,
+ "metrics": {
+  "n_tickets": 369,
+  "type_macro_f1": 0.851,
+  "service_request_recall": 0.8636,
+  "cluster_recall": 0.9286,
+  "cluster_purity_mean": 0.9943,
+  "ari": 0.8709,
+  "n_gt_clusters": 14,
+  "n_pred_clusters": 13,
+  "baseline_cluster_recall": 0.0714,
+  "baseline_purity_mean": 0.963,
+  "baseline_ari": 0.2786,
+  "baseline_n_pred_clusters": 42,
+  "outcomes": {
+   "digest": 11,
+   "linked": 2
+  },
+  "n_digests": 11,
+  "numbers_match_rate": 1.0,
+  "citation_valid_rate": 1.0,
+  "pii_leak_count": 0,
+  "injection_blocked": true,
+  "digest_precision": 1.0,
+  "digest_precision_wilson": [
+   0.7412,
+   1.0
+  ]
+ },
+ "lead_time_days": {
+  "WEB-412": 46.0,
+  "FC-118": 52.8
+ }
+}
