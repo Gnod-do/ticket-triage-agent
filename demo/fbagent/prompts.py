@@ -1,6 +1,6 @@
 """Prompts (Russian). PROMPT_VERSION is part of the enrichment cache key."""
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v1"  # enrich prompt only; agent prompt changes do not invalidate the cache
 
 ENRICH_SCHEMA = {
     "type": "object",
@@ -81,7 +81,7 @@ AGENT_SYSTEM_PROMPT = """# РОЛЬ
 
 # ФОРМАТ РЕЗУЛЬТАТА (draft для submit_digest_item)
 title — до 10 слов; summary — 2–3 предложения языком пользователя;
-scale_text — «N обращений от M клиентов, динамика: …» строго по статистике;
+scale_text — «N обращений от M клиентов, динамика: рост | стабильно | снижение» — только N и M из статистики, других чисел не пиши;
 evidence — список E-ссылок; hypothesis — начинается со слова «Гипотеза:»;
 action — что предлагается проверить или сделать; channel — канал из get_product_owner.
 

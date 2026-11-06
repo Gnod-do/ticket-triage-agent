@@ -30,13 +30,16 @@ def _execute(box: ToolBox, cluster_id: str, name: str, args) -> dict:
         return {"error": f"ошибка вызова {name}: {e}"}
 
 
+MAX_REJECTED_SUBMITS = 2
+
+
 def run_agent_for_cluster(cluster_id: str, toolbox: ToolBox, llm: LLMClient, max_calls: int = 8) -> dict:
     toolbox.current_cluster = cluster_id
     product = toolbox.get_cluster_stats(cluster_id)["product_id"]
     messages = [{"role": "system", "content": AGENT_SYSTEM_PROMPT},
                 {"role": "user", "content": f"cluster_id: {cluster_id}\nproduct_id: {product}\n"
                                             f"Минимум ссылок на обращения: {MIN_EVIDENCE}. Начни с get_cluster_stats."}]
-    schemas, calls, trace = toolbox.schemas(), 0, []
+    schemas, calls, trace, rejected = toolbox.schemas(), 0, [], 0
 
     def done():
         return toolbox.outcomes.get(cluster_id)
@@ -58,6 +61,11 @@ def run_agent_for_cluster(cluster_id: str, toolbox: ToolBox, llm: LLMClient, max
             trace.append({"tool": name, "args": fn.get("arguments"), "result": result})
             messages.append({"role": "tool", "tool_name": name,
                              "content": json.dumps(result, ensure_ascii=False, default=str)})
+            if name == "submit_digest_item" and result.get("ok") is False:
+                rejected += 1
+                if rejected >= MAX_REJECTED_SUBMITS:
+                    toolbox.request_human_review(cluster_id, "PolicyGate отклонил черновик дважды: "
+                                                 + "; ".join(result.get("violations", [])))
             if done():
                 break
         if not done() and calls >= max_calls:

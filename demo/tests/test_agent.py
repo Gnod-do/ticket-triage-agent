@@ -94,3 +94,11 @@ def test_string_arguments_are_parsed(box):
     llm = FakeLLM([{"content": "", "tool_calls": [{"function": {"name": "label_cluster",
                    "arguments": '{"cluster_id": "webneft:0", "status": "noise"}'}}]}, final()])
     assert run_agent_for_cluster(CID, box, llm)["outcome"] == "labeled"
+
+
+def test_two_rejected_submits_go_to_review(box):
+    bad = dict(DRAFT, scale_text="99 обращений")
+    llm = FakeLLM([call("get_cluster_examples", cluster_id=CID, k=5)] +
+                  [call("submit_digest_item", cluster_id=CID, draft=bad) for _ in range(3)])
+    r = run_agent_for_cluster(CID, box, llm)
+    assert r["outcome"] == "review" and r["calls"] == 3 and "PolicyGate" in box.outcomes[CID]["reason"]

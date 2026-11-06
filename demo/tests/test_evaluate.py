@@ -64,3 +64,9 @@ def test_evaluate_and_report(tmp_path):
     assert m["injection_blocked"] is True and m["digest_precision"] == 1.0
     write_report(m, tmp_path / "r.md")
     assert "Метрика" in (tmp_path / "r.md").read_text(encoding="utf-8")
+
+
+def test_service_recall_is_none_without_service_tickets():
+    ts = [mk(0, None, typ="bug")]
+    es = {"T000": Enrichment("T000", "bug", "f", "s", "blocker", 0.9)}
+    assert type_scores(ts, es)["service_request_recall"] is None

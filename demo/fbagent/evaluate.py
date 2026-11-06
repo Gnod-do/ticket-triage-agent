@@ -57,7 +57,7 @@ def type_scores(tickets: list[Ticket], enrichments: dict[str, Enrichment]) -> di
     labels = sorted(set(y))
     return {"type_macro_f1": round(f1_score(y, p, labels=labels, average="macro", zero_division=0), 4),
             "service_request_recall": round(recall_score(y, p, labels=["service_request"], average="macro",
-                                                         zero_division=0), 4)}
+                                                         zero_division=0), 4) if "service_request" in y else None}
 
 
 def lead_time_days(tickets: list[Ticket], assignment: dict[str, str], backlog: list[dict],

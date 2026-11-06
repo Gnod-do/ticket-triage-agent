@@ -127,3 +127,9 @@ def test_bm25_groups_paraphrases_sharing_terms():
     a = bm25_clusters(ts, threshold=0.3)
     assert len({a[f"T{i}"] for i in range(4)}) == 1 and len({a[f"T{i}"] for i in range(4, 8)}) == 1
     assert a["T0"] != a["T4"] and a["T0"] != "noise"
+
+
+def test_gate_allows_iso_week_labels(box):
+    d = good_draft(box)
+    d["scale_text"] = "9 обращений от 9 клиентов, динамика: рост (W36, 2026-W37)"
+    assert box.submit_digest_item("webneft:0", d)["ok"] is True

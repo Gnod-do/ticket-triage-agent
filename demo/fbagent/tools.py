@@ -39,7 +39,8 @@ class PolicyGate:
             elif mask_pii(val) != val:
                 v.append(f"поле {f} содержит персональные данные")
         allowed_numbers = {stats.n_tickets, stats.n_customers, len(stats.weekly_counts), *stats.weekly_counts.values()}
-        nums = {int(x) for x in re.findall(r"\d+", str(draft.get("scale_text", "")))}
+        scale = re.sub(r"(?:\d{4}-)?W\d{1,2}\b", "", str(draft.get("scale_text", "")))  # ISO week labels are not counts
+        nums = {int(x) for x in re.findall(r"\d+", scale)}
         if stats.n_tickets not in nums:
             v.append(f"scale_text должен содержать число обращений из get_cluster_stats ({stats.n_tickets})")
         if nums - allowed_numbers:
