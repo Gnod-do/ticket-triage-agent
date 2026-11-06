@@ -133,3 +133,14 @@ def test_gate_allows_iso_week_labels(box):
     d = good_draft(box)
     d["scale_text"] = "9 обращений от 9 клиентов, динамика: рост (W36, 2026-W37)"
     assert box.submit_digest_item("webneft:0", d)["ok"] is True
+
+
+def test_digest_blocked_when_backlog_issue_found(box):
+    box.current_cluster = "webneft:0"
+    assert box.search_backlog("webneft", "не приходит смс код пароль")["issues"]
+    r = box.submit_digest_item("webneft:0", good_draft(box))
+    assert r["ok"] is False and any("WEB-412" in v for v in r["violations"])
+
+
+def test_weak_backlog_match_is_ignored(box):
+    assert box.search_backlog("webneft", "пароль выгрузка отчёт документы")["issues"] == []

@@ -17,6 +17,7 @@ from .models import ClusterStats, DigestItem, Enrichment, Ticket
 from .pii import mask_pii
 
 MIN_EVIDENCE = 5
+BACKLOG_MATCH_MIN = 0.5
 LABEL_STATUSES = ("noise", "service_request")
 DRAFT_TEXT_FIELDS = ("title", "summary", "scale_text", "hypothesis", "action")
 
@@ -68,6 +69,7 @@ class ToolBox:
         self.digests: list[DigestItem] = []
         self.backlog_comments: list[dict] = []
         self.current_cluster: str | None = None
+        self.backlog_hits: dict[str, list[str]] = {}
 
     # ---------- helpers ----------
     def _stats(self, cluster_id: str) -> ClusterStats:
@@ -126,10 +128,13 @@ class ToolBox:
             if issue["product_id"] != product_id:
                 continue
             overlap = len(q & set(tokenize(issue["title"]))) / max(1, len(q))
-            if overlap >= 0.25:
+            if overlap >= BACKLOG_MATCH_MIN:
                 hits.append({"key": issue["key"], "title": issue["title"], "status": issue.get("status", "open"),
                              "score": round(overlap, 2)})
-        return {"issues": sorted(hits, key=lambda h: -h["score"])[:3]}
+        hits = sorted(hits, key=lambda h: -h["score"])[:3]
+        if hits and self.current_cluster:
+            self.backlog_hits[self.current_cluster] = [h["key"] for h in hits]
+        return {"issues": hits}
 
     def get_product_owner(self, product_id: str, feature: str) -> dict:
         exact = [o for o in self.owners if o["product_id"] == product_id and o["feature"] == feature]
@@ -147,6 +152,9 @@ class ToolBox:
         violations = self.gate.check(draft, s, owner, set(self.aliases.get(cluster_id, {})))
         if owner["team"] is None:
             violations.append("владелец продукта не найден — нужна ручная проверка")
+        if self.backlog_hits.get(cluster_id):
+            keys = ", ".join(self.backlog_hits[cluster_id])
+            violations.append(f"по теме уже есть задача {keys} — используйте update_backlog_item, а не дайджест")
         if violations:
             return {"ok": False, "violations": violations}
         item = DigestItem(cluster_id, s.product_id, draft["title"], draft["summary"], draft["scale_text"],
