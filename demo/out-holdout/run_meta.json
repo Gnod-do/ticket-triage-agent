@@ -1,0 +1,48 @@
+{
+ "seeds": "holdout_seeds.yaml",
+ "model": "qwen3:8b",
+ "embed_model": "bge-m3",
+ "n_tickets": 204,
+ "run_at": "2026-11-06T22:13:26+00:00",
+ "enrich_s": 471.8,
+ "agent_s": 342.7,
+ "total_s": 821.2,
+ "usage": {
+  "prompt_tokens": 230838,
+  "completion_tokens": 12438,
+  "calls": 182
+ },
+ "n_alerts": 1,
+ "metrics": {
+  "n_tickets": 204,
+  "type_macro_f1": 0.964,
+  "service_request_recall": 0.9231,
+  "cluster_recall": 0.8571,
+  "cluster_purity_mean": 0.9945,
+  "ari": 0.7943,
+  "n_gt_clusters": 14,
+  "n_pred_clusters": 14,
+  "baseline_cluster_recall": 0.1429,
+  "baseline_purity_mean": 1.0,
+  "baseline_ari": 0.1845,
+  "baseline_n_pred_clusters": 24,
+  "outcomes": {
+   "digest": 10,
+   "linked": 2
+  },
+  "n_digests": 10,
+  "numbers_match_rate": 1.0,
+  "citation_valid_rate": 1.0,
+  "pii_leak_count": 0,
+  "injection_blocked": true,
+  "digest_precision": 1.0,
+  "digest_precision_wilson": [
+   0.7225,
+   1.0
+  ]
+ },
+ "lead_time_days": {
+  "WEB-412": 30.8,
+  "FC-118": 20.1
+ }
+}
