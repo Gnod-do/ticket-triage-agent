@@ -1,0 +1,39 @@
+%% Архитектура — горизонтальная версия для слайда
+flowchart LR
+  classDef src fill:#eef1f5,stroke:#55637a,color:#1e2733
+  classDef det fill:#eaf4ff,stroke:#3d76a2,color:#1e3554
+  classDef ai fill:#f2ebff,stroke:#7151a9,color:#2b1f48
+  classDef gate fill:#fff2d9,stroke:#a66b17,color:#4d3210
+  classDef human fill:#e7f7ec,stroke:#3a9b5c,color:#1f4d30
+
+  SRC[("Система<br/>обращений<br/>тикеты · звонки<br/>· вложения")]:::src
+  subgraph P1["Процесс 1"]
+    I["① Ingest<br/>read-only · ПДн<br/>маскируются"]:::det
+  end
+  subgraph P2["Процесс 2 · GPU"]
+    direction TB
+    M["② Media<br/>Qwen-ASR / VL"]:::ai
+    E["③ Enrich<br/>Qwen 3.8 → JSON<br/>+ эмбеддинг"]:::ai
+    M --> E
+  end
+  DB[("PostgreSQL<br/>+ pgvector")]:::src
+  subgraph P3["Процесс 3 · приложение"]
+    direction TB
+    C["④ Cluster<br/>счётчики · тренды<br/>всплески"]:::det
+    A["⑤ Agent<br/>Qwen + 10 tools"]:::ai
+    G{{"PolicyGate"}}:::gate
+    C --> A --> G
+  end
+  SUP["Поддержка<br/>SLA как сейчас"]:::human
+  LEAD["Старший<br/>смены"]:::human
+  PT["Продуктовые<br/>команды"]:::human
+
+  SRC -->|"сразу"| SUP
+  SRC -->|"каждые 15–60 мин"| I --> M
+  E --> DB --> C
+  C -->|"всплеск"| LEAD
+  G -->|"дайджест"| PT
+  PT -.->|"accepted / rejected"| DB
+  style P1 fill:#f5f9ff,stroke:#3d76a2
+  style P2 fill:#faf7ff,stroke:#7151a9
+  style P3 fill:#f5f9ff,stroke:#3d76a2

@@ -49,7 +49,8 @@ def scenarios(path: Path) -> list[dict]:
     return rows
 
 
-def tornado(base: dict, path_png: Path, swing: float = 0.3) -> list[tuple[str, float, float]]:
+def tornado(base: dict, path_png: Path, swing: float = 0.3, figsize=(8, 4.5),
+            fontsize: int = 8) -> list[tuple[str, float, float]]:
     """Vary each parameter ±swing around the base case; plot the resulting max_capex range."""
     import matplotlib
     matplotlib.use("Agg")
@@ -62,14 +63,16 @@ def tornado(base: dict, path_png: Path, swing: float = 0.3) -> list[tuple[str, f
         hi = max_capex(dict(base, **{k: base[k] * (1 + swing)}))
         bars.append((k, min(lo, hi), max(lo, hi)))
     bars.sort(key=lambda b: b[2] - b[1])
-    fig, ax = plt.subplots(figsize=(8, 4.5))
+    fig, ax = plt.subplots(figsize=figsize)
     for i, (k, lo, hi) in enumerate(bars):
         ax.barh(i, (hi - ref) / 1e6, left=0, color="#2f7d6d")
         ax.barh(i, (lo - ref) / 1e6, left=0, color="#c4553a")
-    ax.set_yticks(range(len(bars)), [PARAM_LABELS[b[0]] for b in bars], fontsize=8)
+    ax.set_yticks(range(len(bars)), [PARAM_LABELS[b[0]] for b in bars], fontsize=fontsize)
     ax.axvline(0, color="#333", lw=0.8)
-    ax.set_xlabel(f"Изменение допустимых инвестиций, млн ₽ (база {ref / 1e6:.1f} млн ₽, параметры ±{int(swing * 100)}%)")
-    ax.set_title("Чувствительность допустимых инвестиций (окупаемость ≤ 3 лет)")
+    ax.set_xlabel(f"Δ инвестиций, млн ₽ (параметры ±{int(swing * 100)}%)",
+                  fontsize=fontsize)
+    ax.set_title("Что сильнее всего влияет на результат", fontsize=fontsize + 2)
+    ax.tick_params(axis="x", labelsize=fontsize)
     fig.tight_layout()
     Path(path_png).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path_png, dpi=150)
