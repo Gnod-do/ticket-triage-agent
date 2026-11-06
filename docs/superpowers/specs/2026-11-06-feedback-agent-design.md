@@ -225,7 +225,22 @@ demo/
 4. Slide khoảng 10 trang (kiến trúc, tải, kết quả eval, tài chính).
 5. AI Footnotes.
 
-## 9. Rủi ro và câu hỏi còn mở
+## 9. Bổ sung sau khi tham khảo repo team (quangtuanitmo18/hackathon-gazprom, nhánh feat/webneft-case-v2)
+
+| # | Bổ sung | Áp dụng vào |
+|---|---|---|
+| R1 | **Đa sản phẩm:** mỗi ticket có `product_id` do backend gán. Clustering, đếm và routing tách riêng theo `product_id`. Product không rõ → `request_human_review`. Demo dùng 2 sản phẩm (`webneft`, `fuel_cards`) | Phần 1, 2, 7 |
+| R2 | **Hai mốc thời gian:** `source_created_at` (thời điểm tạo trong hệ thống nguồn) và `ingested_at` (thời điểm agent thật sự thấy ticket). Backtest chỉ dùng dữ liệu có trước thời điểm mô phỏng, không để dữ liệu tương lai lọt vào | Phần 4.3, 5 |
+| R3 | **Phân tích 7 ticket mẫu:** №3 là 1 ticket có 2 triệu chứng (đếm là 1); №1 và №2 cùng chủ đề nhưng chưa chứng minh cùng lỗi; №4 là yêu cầu dịch vụ khẩn, đi luồng SLA; №6 và №7 không bao giờ được cấp mật khẩu hoặc OTP | Phần 3 (few-shot), bài nộp |
+| R4 | **Nghiệm thu bằng cận dưới Wilson 95%** của actionable precision. Với p ≈ 0,8 và sai số ±5 điểm % cần khoảng 246 mẫu | Phần 4 |
+| R5 | **Quy tắc C phải thắng B:** so pipeline Qwen với baseline rules + BM25 trên cùng holdout. Không thắng thì chọn B. Demo tính cả baseline BM25 để có số so sánh | Phần 4, 6, 7 |
+| R6 | **Ticket là dữ liệu, không phải lệnh:** prompt có khối chống injection, model chỉ thấy alias `E1..En`, backend tự ánh xạ sang ID thật | Phần 3 |
+| R7 | **5 service logic, chỉ 3 tiến trình triển khai cho MVP:** ingest worker; model workers (ASR/VL/LLM); app gồm cluster + agent + delivery | Phần 1 |
+| R8 | **Script export DOCX/PPTX kèm kiểm tra giới hạn ký tự**, làm ở plan bài nộp | Phần 8 |
+
+**Thay đổi so với Phần 7:** demo lưu dữ liệu bằng file JSON/JSONL và cache trong `demo/.cache/` thay cho SQLite. Demo chạy theo batch nên không cần DB, bớt được một phụ thuộc.
+
+## 10. Rủi ro và câu hỏi còn mở
 - Qwen 8B local chậm hoặc JSON không ổn định → dùng `qwen3:4b`, guided JSON, cache.
 - Số liệu vĩ mô 2026 cần tra cứu tại thời điểm viết. Không dùng số từ trí nhớ.
 - Lượng ticket thật/ngày không có trong đề → ghi rõ là giả định, có phân tích độ nhạy.
