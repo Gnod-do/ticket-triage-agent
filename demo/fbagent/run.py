@@ -62,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--embed-model", default="bge-m3")
     ap.add_argument("--limit", type=int, default=None, help="use only the first N tickets")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--seeds", default=str(DEMO / "data" / "seeds.yaml"), help="scenario file (e.g. holdout_seeds.yaml)")
     ap.add_argument("--out", default=str(DEMO / "out"))
     ap.add_argument("--cache", default=str(DEMO / ".cache"))
     a = ap.parse_args(argv)
@@ -69,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     timings, t0 = {}, time.time()
 
-    tickets = generate_tickets(DEMO / "data" / "seeds.yaml", seed=a.seed)[: a.limit]
+    tickets = generate_tickets(Path(a.seeds), seed=a.seed)[: a.limit]
     save_jsonl(tickets, out / "tickets.jsonl")
     llm = make_fake_llm() if a.fake else OllamaClient(model=a.model, embed_model=a.embed_model)
     try:
@@ -101,10 +102,10 @@ def main(argv: list[str] | None = None) -> int:
     backlog = json.loads(backlog_path.read_text(encoding="utf-8"))
     allowlist = json.loads(owners_path.read_text(encoding="utf-8"))["allowlist"]
     metrics = evaluate(tickets, enrichments, assignment, box.outcomes, box.digests, baseline, backlog, allowlist)
-    meta = {"model": llm.model, "embed_model": "hash-bow" if a.fake else a.embed_model, "n_tickets": len(tickets),
+    meta = {"seeds": Path(a.seeds).name, "model": llm.model, "embed_model": "hash-bow" if a.fake else a.embed_model, "n_tickets": len(tickets),
             "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **timings,
             "total_s": round(time.time() - t0, 1), "usage": getattr(llm, "usage", {})}
-    write_report(metrics, out / "eval_report.md", meta={k: meta[k] for k in ("model", "embed_model", "n_tickets",
+    write_report(metrics, out / "eval_report.md", meta={k: meta[k] for k in ("seeds", "model", "embed_model", "n_tickets",
                                                                            "total_s")})
     _write_digest(box.digests, out / "digest.md")
     _write_alerts(alerts, out / "alerts.md")

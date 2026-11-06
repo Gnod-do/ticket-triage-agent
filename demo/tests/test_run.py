@@ -30,3 +30,11 @@ def test_ollama_down_message(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(run, "OllamaClient", Down)
     code = run.main(["--out", str(tmp_path / "o"), "--cache", str(tmp_path / "c"), "--limit", "3"])
     assert code == 2 and "ollama pull qwen3:8b" in capsys.readouterr().err
+
+
+def test_custom_seeds_file(tmp_path):
+    from pathlib import Path
+    seeds = Path(__file__).resolve().parents[1] / "data" / "holdout_seeds.yaml"
+    out = tmp_path / "h"
+    assert run.main(["--fake", "--seeds", str(seeds), "--out", str(out), "--cache", str(tmp_path / "c")]) == 0
+    assert json.loads((out / "run_meta.json").read_text(encoding="utf-8"))["seeds"] == "holdout_seeds.yaml"
