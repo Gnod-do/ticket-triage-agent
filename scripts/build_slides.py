@@ -217,7 +217,7 @@ def build() -> Path:
         text(s, Inches(0.6), y, Inches(2.6), Inches(0.5), h, 15, True, TEAL)
         text(s, Inches(3.2), y, Inches(9.6), Inches(0.5), t, 15, False, NAVY)
     text(s, Inches(0.6), Inches(6.85) - Inches(0.25), Inches(12), Inches(0.3),
-         "Прототип, 369 обращений, qwen3:8b локально: F1 0,85 · числа 100% · ПДн 0 · injection заблокирован · всплеск найден", 11, True, TEAL)
+         "Прототип, 369 обращений, qwen3:8b локально: F1 0,93 · числа 100% · ПДн 0 · дубли 0 · injection заблокирован · всплеск найден", 11, True, TEAL)
 
     # 9 — metrics
     s = base(prs, "Главное — сколько обращений не случилось", 9, "Эффект внедрения")
