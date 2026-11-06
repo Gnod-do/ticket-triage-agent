@@ -10,11 +10,18 @@
 
 macro:
   key_rate:
-    value: null
-    source: "Банк России — уточнить на дату сдачи"
+    value: 0.14
+    as_of: "2026-10-23"
+    forecast_avg: {"2027": "12.5-13.5%", "2028": "9.0-10.0%"}
+    source: "Банк России, пресс-релиз 23.10.2026, https://www.cbr.ru/press/keypr/"
   wage_growth:
-    value: null
-    source: "Росстат / Минэкономразвития — уточнить на дату сдачи"
+    value: 0.07
+    range: "6.8-7.1% в год, 2027-2029"
+    source: "Минэкономразвития, прогноз СЭР на 2027-2029 (https://www.consultant.ru/law/hotdocs/95751.html)"
+  it_risk_premium: 0.05
+# r = expected key rate over the horizon + IT project risk premium:
+#   pessimistic 14% held + 6 pp = 20%; base ~13% + 5 pp = 18%; optimistic ~10% + 5 pp = 15%
+# g = nominal wage indexation: 5% / 7% (MinEcon) / 8%
 
 scenarios:
   pessimistic:
@@ -28,7 +35,7 @@ scenarios:
     lead_gain_weeks: 2
     extra_fixed_clusters: 5
     remaining_weeks: 13
-    r: 0.22
+    r: 0.20
     g: 0.05
   base:
     managers: 40
@@ -42,7 +49,7 @@ scenarios:
     extra_fixed_clusters: 20
     remaining_weeks: 26
     r: 0.18
-    g: 0.08
+    g: 0.07
   optimistic:
     managers: 40
     h_week: 4
@@ -54,7 +61,7 @@ scenarios:
     lead_gain_weeks: 10
     extra_fixed_clusters: 30
     remaining_weeks: 26
-    r: 0.14
-    g: 0.10
+    r: 0.15
+    g: 0.08
 
-deposit_rate_for_comparison: 0.16
+deposit_rate_for_comparison: 0.13  # ~ средняя ключевая ставка 2027 по прогнозу ЦБ
