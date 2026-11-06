@@ -96,3 +96,16 @@ def test_spike_detected_and_baseline_not():
     alerts = detect_spikes(a, steady + burst)
     assert len(alerts) == 1 and alerts[0].cluster_id == "webneft:1" and alerts[0].count == 12
     assert detect_spikes({t.ticket_id: "webneft:0" for t in steady}, steady) == []
+
+
+def test_small_groups_are_noise():
+    ts, es, emb, _ = blobs(n_per=8, centers=((1, 0, 0), (0, 1, 0)))
+    extra, e2, emb2, _ = blobs(n_per=3, centers=((0, 0, 1),), start=200)
+    a = cluster_tickets(ts + extra, {**es, **e2}, {**emb, **emb2})
+    assert all(a[t.ticket_id] == "noise" for t in extra)
+
+
+def test_threshold_controls_merging():
+    ts, es, emb, _ = blobs(n_per=6, centers=((1, 0.0, 0), (1, 0.35, 0)))  # ~19° apart: cosine distance ~0.055
+    assert len({v for v in cluster_tickets(ts, es, emb, distance_threshold=0.4).values()}) == 1
+    assert len({v for v in cluster_tickets(ts, es, emb, distance_threshold=0.02).values()}) == 2

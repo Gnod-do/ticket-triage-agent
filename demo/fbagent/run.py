@@ -20,6 +20,7 @@ from .fake import make_fake_llm
 from .finance import scenarios, tornado
 from .finance import write_report as write_finance
 from .llm import LLMUnavailable, OllamaClient
+from .pii import mask_pii
 from .tools import MIN_EVIDENCE, ToolBox
 
 DEMO = Path(__file__).resolve().parents[1]
@@ -27,7 +28,9 @@ DEMO = Path(__file__).resolve().parents[1]
 
 def _embed_all(llm, tickets, enrichments, batch=64) -> dict[str, np.ndarray]:
     ids = [t.ticket_id for t in tickets]
-    texts = [f"{enrichments[i].feature}: {enrichments[i].problem_summary}" for i in ids]
+    by_id = {t.ticket_id: t for t in tickets}
+    texts = [mask_pii(by_id[i].text.replace("[Расшифровка звонка] Клиент: ", "")) + " " +
+             enrichments[i].problem_summary for i in ids]  # ticket text + Qwen summary (most stable on eval)
     vecs = []
     for k in range(0, len(texts), batch):
         vecs.append(llm.embed(texts[k:k + batch]))

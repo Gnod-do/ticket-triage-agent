@@ -8,7 +8,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 import numpy as np
-from sklearn.cluster import HDBSCAN
+from sklearn.cluster import AgglomerativeClustering
 
 from .models import Alert, ClusterStats, Enrichment, Ticket
 
@@ -19,7 +19,13 @@ NOISE = "noise"
 
 def cluster_tickets(tickets: list[Ticket], enrichments: dict[str, Enrichment],
                     embeddings: dict[str, np.ndarray], min_cluster_size: int = 4,
-                    min_samples: int | None = None) -> dict[str, str]:
+                    distance_threshold: float = 0.4) -> dict[str, str]:
+    """Average-linkage agglomerative clustering on cosine distance, separately per product.
+
+    Chosen over HDBSCAN on real bge-m3 embeddings (synthetic labelled set): HDBSCAN(min_cluster_size=4)
+    split 14 topics into 45 pure fragments (recall 0.14); average linkage at 0.4 gave recall 0.93,
+    purity 0.99. The threshold must be re-tuned on a real golden set before production.
+    """
     assignment = {t.ticket_id: NOISE for t in tickets}
     by_product: dict[str, list[str]] = defaultdict(list)
     for t in tickets:
@@ -30,10 +36,12 @@ def cluster_tickets(tickets: list[Ticket], enrichments: dict[str, Enrichment],
         if len(ids) < min_cluster_size:
             continue
         X = np.stack([embeddings[i] for i in ids]).astype(float)
-        X /= np.linalg.norm(X, axis=1, keepdims=True) + 1e-12  # euclidean on unit vectors ~ cosine
-        labels = HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples, copy=True).fit_predict(X)
+        X /= np.linalg.norm(X, axis=1, keepdims=True) + 1e-12
+        labels = AgglomerativeClustering(n_clusters=None, distance_threshold=distance_threshold,
+                                         metric="cosine", linkage="average").fit_predict(X)
+        sizes = Counter(labels)
         for tid, lab in zip(ids, labels):
-            if lab >= 0:
+            if sizes[lab] >= min_cluster_size:
                 assignment[tid] = f"{product}:{lab}"
     return assignment
 

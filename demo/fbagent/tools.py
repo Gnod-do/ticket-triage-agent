@@ -187,7 +187,7 @@ class ToolBox:
             fn("get_cluster_stats", "Точная статистика кластера: число обращений, клиентов, динамика.", cid, ["cluster_id"]),
             fn("get_cluster_examples", "Примеры обращений кластера с псевдонимами E1..En.", {**cid, "k": i}, ["cluster_id"]),
             fn("search_tickets", "Поиск похожих обращений внутри продукта.", {"query": s, "product_id": s}, ["query", "product_id"]),
-            fn("search_backlog", "Поиск уже существующих задач в бэклоге продукта.", {"product_id": s, "query": s}, ["product_id", "query"]),
+            fn("search_backlog", "Поиск уже существующих задач в бэклоге продукта. query — ключевые слова на русском из текстов обращений.", {"product_id": s, "query": s}, ["product_id", "query"]),
             fn("get_product_owner", "Команда-владелец и канал доставки.", {"product_id": s, "feature": s}, ["product_id", "feature"]),
             fn("get_cluster_history", "Прошлые дайджесты и решения команды по кластеру.", cid, ["cluster_id"]),
             fn("submit_digest_item", "Отправить элемент дайджеста (проверяется политикой).", {**cid, "draft": {
