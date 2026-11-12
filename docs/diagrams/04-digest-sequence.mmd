@@ -13,8 +13,8 @@ sequenceDiagram
   AG->>TB: get_cluster_stats
   TB->>DB: детерминированный подсчёт
   TB-->>AG: 23 обращения, 19 клиентов, рост
-  AG->>TB: get_cluster_examples(k=5)
-  TB-->>AG: E1..E5 (ПДн замаскированы, реальные ID скрыты)
+  AG->>TB: get_cluster_examples(k=8)
+  TB-->>AG: E1..E8 (ПДн замаскированы, реальные ID скрыты)
   AG->>TB: search_backlog / get_product_owner
   TB-->>AG: задачи нет · команда и канал
   AG->>PG: submit_digest_item(черновик)

@@ -244,3 +244,20 @@ demo/
 - Qwen 8B local chậm hoặc JSON không ổn định → dùng `qwen3:4b`, guided JSON, cache.
 - Số liệu vĩ mô 2026 cần tra cứu tại thời điểm viết. Không dùng số từ trí nhớ.
 - Lượng ticket thật/ngày không có trong đề → ghi rõ là giả định, có phân tích độ nhạy.
+
+## 11. Bổ sung 12.11.2026 — tối ưu sau khi audit toàn bộ giải pháp
+
+| # | Phát hiện | Sửa |
+|---|---|---|
+| O1 | Bài chính có một khối cũ của cuối mục 4 bị lặp (hình rollout, tiêu chí readiness, bảng 369 ticket), chiếm ~1.300 ký tự | Xoá khối lặp |
+| O2 | Holdout: chủ đề `webneft_queue_404` (19 ticket) bị tách thành 2 cụm và gửi 2 mục digest; metric cũ không bắt được | Bước gộp thứ hai: cùng product, cùng feature chủ đạo, khoảng cách centroid < 0,28 (`MERGE_THRESHOLD`). Trên hai bộ synthetic, cặp cùng chủ đề cách 0,26, cặp khác chủ đề cùng feature ≥ 0,30. Thêm metric «Дубли тем внутри дайджеста» |
+| O3 | Mẫu số recall gồm chủ đề 1 ticket, không thể tìm được với min_cluster_size 4 | Báo thêm `cluster_recall_reachable` (chỉ chủ đề ≥ 4 ticket) |
+| O4 | Nhãn xu hướng «снижение» xuất hiện trên chủ đề phẳng do cửa sổ 14 ngày với 1–3 ticket/tuần | Cửa sổ 28 ngày so với 28 ngày trước, chỉ gắn nhãn khi lệch ≥ 1,5× và ≥ 3 ticket |
+| O5 | Agent xem đúng 5 ví dụ và phải trích ≥ 5, nên luật trích dẫn là hình thức | `EXAMPLES_K = 8`, giữ `MIN_EVIDENCE = 5`; model phải chọn |
+| O6 | Hai bước đầu của agent luôn giống nhau nhưng tốn 2 vòng LLM | Backend prefetch stats + examples vào message đầu; ghi vào trace với `prefetched: true`. Holdout: 162 thay vì 182 lượt gọi model, 186 nghìn thay vì 231 nghìn prompt token, thời gian agent 26 s thay vì 29 s mỗi cụm |
+| O7 | Enrich chạy tuần tự, 2,3 s/ticket | `enrich_all(..., workers=4)` bằng ThreadPool; CLI `--workers`. Lưu ý: Ollama qua brew services mặc định xử lý 1 request một lúc, đo lại 496 s cho 204 ticket, tức không nhanh hơn. Cần chạy server với `OLLAMA_NUM_PARALLEL=4` để có hiệu quả |
+| O8 | Không lưu enrichments và assignment nên khó audit | Ghi `enrichments.jsonl`, `assignment.json` vào `out/` |
+| O9 | B2 chiếm 76% lợi ích cơ sở nhưng dựa trên số giờ mà đề nói là chưa biết | Thêm cột và đoạn «только B1» (0,1 / 2,5 / 10,9 triệu ₽) làm sàn ngân sách pilot |
+| O10 | Thiếu ghi chú production cho PII tên người và baseline spike | Ghi trong bài chính: NER local cho tên; baseline cùng giờ trong 7 ngày |
+
+Chưa làm (tuỳ thời gian trước 20.11): mô phỏng vòng feedback accepted/rejected qua `get_cluster_history`; chế độ replay theo tuần `--as-of` để vẽ đường lead time.

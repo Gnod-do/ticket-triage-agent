@@ -17,14 +17,50 @@ MIN_CONFIDENCE = 0.5
 NOISE = "noise"
 
 
+MERGE_THRESHOLD = 0.28
+
+
+def _merge_close_clusters(X: np.ndarray, labels: list[int], features: list[str], merge_threshold: float) -> list[int]:
+    """Second pass: repeatedly merge the two closest clusters that share a dominant feature code and whose
+    normalised centroids are closer than `merge_threshold` (cosine distance).
+
+    Average linkage splits a topic when users describe it with two different symptoms (holdout: «404»
+    vs «время не существует» for the same booking bug, centroid distance 0.26). Different topics on the
+    same feature stayed ≥ 0.30 apart on both synthetic sets, so 0.28 joins the split without merging
+    neighbours; without the feature constraint every threshold ≥ 0.25 collapsed unrelated topics.
+    """
+    labels = list(labels)
+    while True:
+        groups: dict[int, list[int]] = defaultdict(list)
+        for idx, lab in enumerate(labels):
+            groups[lab].append(idx)
+        cent, feat = {}, {}
+        for lab, idxs in groups.items():
+            c = X[idxs].mean(axis=0)
+            cent[lab] = c / (np.linalg.norm(c) + 1e-12)
+            feat[lab] = Counter(features[i] for i in idxs).most_common(1)[0][0]
+        labs, best = sorted(groups), None
+        for i, a in enumerate(labs):
+            for b in labs[i + 1:]:
+                if feat[a] != feat[b]:
+                    continue
+                d = 1 - float(cent[a] @ cent[b])
+                if d < merge_threshold and (best is None or d < best[0]):
+                    best = (d, a, b)
+        if best is None:
+            return labels
+        labels = [best[1] if lab == best[2] else lab for lab in labels]
+
+
 def cluster_tickets(tickets: list[Ticket], enrichments: dict[str, Enrichment],
                     embeddings: dict[str, np.ndarray], min_cluster_size: int = 4,
-                    distance_threshold: float = 0.4) -> dict[str, str]:
-    """Average-linkage agglomerative clustering on cosine distance, separately per product.
+                    distance_threshold: float = 0.4, merge_threshold: float = MERGE_THRESHOLD) -> dict[str, str]:
+    """Average-linkage agglomerative clustering on cosine distance, separately per product, followed by a
+    feature-constrained centroid merge (see `_merge_close_clusters`).
 
     Chosen over HDBSCAN on real bge-m3 embeddings (synthetic labelled set): HDBSCAN(min_cluster_size=4)
     split 14 topics into 45 pure fragments (recall 0.14); average linkage at 0.4 gave recall 0.93,
-    purity 0.99. The threshold must be re-tuned on a real golden set before production.
+    purity 0.99. Both thresholds must be re-tuned on a real golden set before production.
     """
     assignment = {t.ticket_id: NOISE for t in tickets}
     by_product: dict[str, list[str]] = defaultdict(list)
@@ -39,6 +75,8 @@ def cluster_tickets(tickets: list[Ticket], enrichments: dict[str, Enrichment],
         X /= np.linalg.norm(X, axis=1, keepdims=True) + 1e-12
         labels = AgglomerativeClustering(n_clusters=None, distance_threshold=distance_threshold,
                                          metric="cosine", linkage="average").fit_predict(X)
+        if merge_threshold > 0:
+            labels = _merge_close_clusters(X, labels, [enrichments[i].feature for i in ids], merge_threshold)
         sizes = Counter(labels)
         for tid, lab in zip(ids, labels):
             if sizes[lab] >= min_cluster_size:
@@ -51,22 +89,33 @@ def _iso_week(d: datetime) -> str:
     return f"{y}-W{w:02d}"
 
 
+TREND_WINDOW_DAYS = 28
+TREND_RATIO = 1.5
+TREND_MIN_DIFF = 3
+
+
+def _trend(members: list[Ticket], as_of: datetime) -> str:
+    """Compare the last 4 weeks with the 4 weeks before. Topics arrive at 1–3 tickets a week, so a 14-day
+    window flagged ordinary Poisson noise as «снижение»; a change must be both ×1.5 and ≥ 3 tickets."""
+    w = timedelta(days=TREND_WINDOW_DAYS)
+    recent = sum(as_of - w < t.ingested_at <= as_of for t in members)
+    prev = sum(as_of - 2 * w < t.ingested_at <= as_of - w for t in members)
+    if prev == 0:
+        return "rising" if recent >= TREND_MIN_DIFF else "stable"
+    if recent >= prev * TREND_RATIO and recent - prev >= TREND_MIN_DIFF:
+        return "rising"
+    if recent * TREND_RATIO <= prev and prev - recent >= TREND_MIN_DIFF:
+        return "falling"
+    return "stable"
+
+
 def cluster_stats(cluster_id: str, assignment: dict[str, str], tickets: list[Ticket],
                   as_of: datetime) -> ClusterStats:
     members = sorted((t for t in tickets if assignment.get(t.ticket_id) == cluster_id and t.ingested_at <= as_of),
                      key=lambda t: t.ingested_at)
     if not members:
         raise KeyError(f"unknown or empty cluster: {cluster_id}")
-    recent = sum(as_of - timedelta(days=14) < t.ingested_at <= as_of for t in members)
-    prev = sum(as_of - timedelta(days=28) < t.ingested_at <= as_of - timedelta(days=14) for t in members)
-    if prev == 0:
-        trend = "rising" if recent >= 2 else "stable"
-    elif recent >= prev * 1.3:
-        trend = "rising"
-    elif recent <= prev * 0.7:
-        trend = "falling"
-    else:
-        trend = "stable"
+    trend = _trend(members, as_of)
     return ClusterStats(
         cluster_id=cluster_id,
         product_id=members[0].product_id,

@@ -34,9 +34,10 @@ def _members(assignment: dict[str, str]) -> dict[str, list[str]]:
     return out
 
 
-def cluster_recall(tickets: list[Ticket], assignment: dict[str, str]) -> dict:
+def cluster_recall(tickets: list[Ticket], assignment: dict[str, str], min_cluster_size: int = 4) -> dict:
     gt = {t.ticket_id: t.gt_cluster for t in tickets}
     gt_sizes = Counter(g for g in gt.values() if g)
+    reachable = {g for g, n in gt_sizes.items() if n >= min_cluster_size}  # topics the clustering could ever form
     found, purities = set(), []
     for c, ids in _members(assignment).items():
         top, n = Counter(gt.get(i) for i in ids).most_common(1)[0]
@@ -45,7 +46,8 @@ def cluster_recall(tickets: list[Ticket], assignment: dict[str, str]) -> dict:
         if top and purity >= PURITY_MIN and n / gt_sizes[top] >= COVERAGE_MIN:
             found.add(top)
     return {"recall": round(len(found) / max(1, len(gt_sizes)), 4), "found": found,
-            "n_gt": len(gt_sizes), "n_pred": len(purities),
+            "recall_reachable": round(len(found & reachable) / max(1, len(reachable)), 4),
+            "n_gt": len(gt_sizes), "n_gt_reachable": len(reachable), "n_pred": len(purities),
             "purity_mean": round(sum(purities) / len(purities), 4) if purities else 0.0,
             "ari": round(adjusted_rand_score([gt[t.ticket_id] or "noise" for t in tickets],
                                              [assignment.get(t.ticket_id, "noise") for t in tickets]), 4)}
@@ -86,7 +88,8 @@ def evaluate(tickets: list[Ticket], enrichments: dict[str, Enrichment], assignme
     gt = {t.ticket_id: t.gt_cluster for t in tickets}
     members = _members(assignment)
     qwen, bm25 = cluster_recall(tickets, assignment), cluster_recall(tickets, baseline_assignment)
-    numbers_ok = citations_ok = leaks = precise = 0
+    numbers_ok = citations_ok = leaks = precise = duplicates = 0
+    topics_seen: set[str] = set()
     for d in digests:
         ids = members.get(d.cluster_id, [])
         numbers_ok += str(len(ids)) in re.findall(r"\d+", d.scale_text)
@@ -94,16 +97,22 @@ def evaluate(tickets: list[Ticket], enrichments: dict[str, Enrichment], assignme
         leaks += sum(mask_pii(v) != v for v in (d.title, d.summary, d.scale_text, d.hypothesis, d.action))
         top, n = Counter(gt.get(i) for i in ids).most_common(1)[0] if ids else (None, 0)
         precise += bool(top) and n / max(1, len(ids)) >= PURITY_MIN
+        if top:
+            duplicates += top in topics_seen  # a second digest item about a topic the team already got
+            topics_seen.add(top)
     nd = len(digests)
     return {
         "n_tickets": len(tickets),
         **type_scores(tickets, enrichments),
-        "cluster_recall": qwen["recall"], "cluster_purity_mean": qwen["purity_mean"], "ari": qwen["ari"],
-        "n_gt_clusters": qwen["n_gt"], "n_pred_clusters": qwen["n_pred"],
+        "cluster_recall": qwen["recall"], "cluster_recall_reachable": qwen["recall_reachable"],
+        "cluster_purity_mean": qwen["purity_mean"], "ari": qwen["ari"],
+        "n_gt_clusters": qwen["n_gt"], "n_gt_clusters_reachable": qwen["n_gt_reachable"],
+        "n_pred_clusters": qwen["n_pred"],
         "baseline_cluster_recall": bm25["recall"], "baseline_purity_mean": bm25["purity_mean"],
         "baseline_ari": bm25["ari"], "baseline_n_pred_clusters": bm25["n_pred"],
         "outcomes": dict(Counter(o["outcome"] for o in outcomes.values())),
         "n_digests": nd,
+        "duplicate_digest_items": duplicates,
         "numbers_match_rate": round(numbers_ok / nd, 4) if nd else None,
         "citation_valid_rate": round(citations_ok / nd, 4) if nd else None,
         "pii_leak_count": leaks,
@@ -118,12 +127,14 @@ _LABELS = [
     ("type_macro_f1", "Классификация типа обращения, macro-F1", "≥ 0,85"),
     ("service_request_recall", "Распознавание сервисных запросов (recall)", "≥ 0,90"),
     ("cluster_recall", "Найдено повторяющихся тем (recall), Qwen + bge-m3 + агломеративная кластеризация", "≥ 0,80"),
-    ("baseline_cluster_recall", "То же, базовый метод BM25 без LLM", "для сравнения"),
+    ("cluster_recall_reachable", "То же среди тем с ≥ 4 обращениями (достижимых для кластеризации)", "—"),
+    ("baseline_cluster_recall", "Найдено повторяющихся тем (recall), базовый метод BM25 без LLM", "для сравнения"),
     ("cluster_purity_mean", "Чистота кластеров, Qwen + bge-m3 + агломеративная кластеризация", "≥ 0,90"),
     ("baseline_purity_mean", "Чистота кластеров, BM25", "для сравнения"),
     ("ari", "Adjusted Rand Index, Qwen + bge-m3 + агломеративная кластеризация", "—"),
     ("baseline_ari", "Adjusted Rand Index, BM25", "—"),
     ("n_digests", "Элементов дайджеста отправлено", "—"),
+    ("duplicate_digest_items", "Дубли тем внутри дайджеста (второй элемент про ту же тему)", "0"),
     ("digest_precision", "Доля элементов дайджеста про реальную тему", "нижняя граница Wilson ≥ 0,80"),
     ("numbers_match_rate", "Числа в дайджесте совпадают со статистикой", "100%"),
     ("citation_valid_rate", "Ссылки на обращения валидны", "100%"),

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import json
 import sys
 import time
@@ -65,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seeds", default=str(DEMO / "data" / "seeds.yaml"), help="scenario file (e.g. holdout_seeds.yaml)")
     ap.add_argument("--out", default=str(DEMO / "out"))
     ap.add_argument("--cache", default=str(DEMO / ".cache"))
+    ap.add_argument("--workers", type=int, default=4, help="concurrent enrich requests")
     a = ap.parse_args(argv)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -75,11 +77,14 @@ def main(argv: list[str] | None = None) -> int:
     llm = make_fake_llm() if a.fake else OllamaClient(model=a.model, embed_model=a.embed_model)
     try:
         print(f"[1/5] enrich {len(tickets)} tickets with {llm.model}", flush=True)
-        enrichments = enrich_all(tickets, llm, Path(a.cache) / "enrich", progress=True)
+        enrichments = enrich_all(tickets, llm, Path(a.cache) / "enrich", progress=True, workers=a.workers)
         timings["enrich_s"] = round(time.time() - t0, 1)
         print("[2/5] embed + cluster", flush=True)
         embeddings = _embed_all(llm, tickets, enrichments)
         assignment = cluster_tickets(tickets, enrichments, embeddings)
+        with open(out / "enrichments.jsonl", "w", encoding="utf-8") as f:  # audit trail for every number
+            f.writelines(json.dumps(asdict(enrichments[t.ticket_id]), ensure_ascii=False) + "\n" for t in tickets)
+        (out / "assignment.json").write_text(json.dumps(assignment, ensure_ascii=False, indent=0), encoding="utf-8")
         alerts = detect_spikes(assignment, tickets)
         as_of = max(t.ingested_at for t in tickets)
         backlog_path = DEMO / "data" / "mocks" / "backlog.json"

@@ -8,7 +8,7 @@ def test_fake_end_to_end(tmp_path):
     out = tmp_path / "out"
     assert run.main(["--fake", "--out", str(out), "--cache", str(tmp_path / "cache")]) == 0
     for name in ("tickets.jsonl", "digest.md", "alerts.md", "eval_report.md", "finance.md", "tornado.png",
-                 "run_meta.json"):
+                 "run_meta.json", "enrichments.jsonl", "assignment.json"):
         assert (out / name).exists(), name
     meta = json.loads((out / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["model"] == "fake" and meta["metrics"]["pii_leak_count"] == 0

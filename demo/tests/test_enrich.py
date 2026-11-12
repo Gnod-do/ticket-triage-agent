@@ -78,3 +78,23 @@ def test_feature_is_constrained_to_product_taxonomy():
 def test_feature_outside_taxonomy_becomes_other():
     e = enrich_ticket(ticket(), fake(reply(feature="password_reset")), None)
     assert e.feature == "other" and e.type == "bug"
+
+
+def test_enrich_all_parallel_keeps_ticket_mapping_and_order():
+    def by_prompt(messages):
+        text = messages[-1]["content"].rsplit('"""', 2)[-2]
+        return reply(problem_summary=f"summary of {text}")
+    llm = FakeLLM(by_prompt, embed_fn=lambda xs: np.zeros((len(xs), 3)))
+    tickets = [ticket(f"текст {i}", f"T{i}") for i in range(20)]
+    out = enrich_all(tickets, llm, None, workers=4)
+    assert list(out) == [t.ticket_id for t in tickets]
+    assert all(out[t.ticket_id].problem_summary == f"summary of текст {i}" for i, t in enumerate(tickets))
+
+
+def test_corrupt_or_half_written_cache_file_is_a_miss(tmp_path):
+    llm = fake(reply())
+    first = enrich_ticket(ticket(), llm, tmp_path)
+    cache_file = next(tmp_path.glob("*.json"))
+    cache_file.write_text("", encoding="utf-8")  # what a concurrent reader sees mid-write
+    again = enrich_ticket(ticket(), fake(reply(problem_summary="повтор")), tmp_path)
+    assert first.type == "bug" and again.problem_summary == "повтор"

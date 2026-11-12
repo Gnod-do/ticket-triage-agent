@@ -1,9 +1,9 @@
 %% Бизнес-процесс: агент работает параллельно поддержке и не добавляет ей работы
 flowchart TB
-  classDef human fill:#e7f7ec,stroke:#3a9b5c,color:#1f4d30
-  classDef ai fill:#f2ebff,stroke:#7151a9,color:#2b1f48
-  classDef det fill:#eaf4ff,stroke:#3d76a2,color:#1e3554
-  classDef dec fill:#fff2d9,stroke:#a66b17,color:#4d3210
+  classDef human fill:#FFFFFF,stroke:#8A98A8,color:#10314C,stroke-width:1.5px
+  classDef ai fill:#DDF3F2,stroke:#00918F,color:#0B3F3E,stroke-width:1.5px
+  classDef det fill:#E6EEF5,stroke:#10314C,color:#10314C,stroke-width:1.5px
+  classDef dec fill:#FFF6EE,stroke:#F56A2B,color:#5A2A10,stroke-width:1.5px
 
   subgraph R1["1 · Поддержка — как сейчас, без изменений"]
     direction LR
@@ -36,6 +36,6 @@ flowchart TB
 
   R1 -.->|"копия обращения, раз в 15–60 мин"| R2
   R2 -->|"еженедельный дайджест"| R3
-  style R1 fill:#fbfdfb,stroke:#3a9b5c
-  style R2 fill:#fcfaff,stroke:#7151a9
-  style R3 fill:#fbfcfe,stroke:#3d76a2
+  style R1 fill:#FBFCFD,stroke:#B8C4D0,stroke-width:1.2px
+  style R2 fill:#FBFCFD,stroke:#00918F,stroke-width:1.2px
+  style R3 fill:#FBFCFD,stroke:#10314C,stroke-width:1.2px

@@ -4,6 +4,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 
@@ -51,8 +54,11 @@ def enrich_ticket(t: Ticket, llm: LLMClient, cache_dir: Path | None) -> Enrichme
     key = hashlib.sha256(f"{llm.model}|{PROMPT_VERSION}|{t.product_id}|{text}".encode()).hexdigest()
     cache_file = Path(cache_dir) / f"{key}.json" if cache_dir else None
     if cache_file and cache_file.exists():
-        d = json.loads(cache_file.read_text(encoding="utf-8"))
-        return Enrichment(**{**d, "ticket_id": t.ticket_id})
+        try:
+            d = json.loads(cache_file.read_text(encoding="utf-8"))
+            return Enrichment(**{**d, "ticket_id": t.ticket_id})
+        except (ValueError, TypeError):
+            log.warning("unreadable cache entry %s, recomputing", cache_file.name)  # half-written or corrupt
     feats = taxonomy().get(t.product_id)
     listing = "\n".join(f"  {k} — {v}" for k, v in feats.items()) if feats else "  (свободный код латиницей)"
     prompt = ENRICH_PROMPT.format(product_id=t.product_id, text=text, features=listing)
@@ -60,15 +66,20 @@ def enrich_ticket(t: Ticket, llm: LLMClient, cache_dir: Path | None) -> Enrichme
     e = _parse(t.ticket_id, resp.get("content", ""), list(feats) if feats else None)
     if cache_file and e.confidence > 0:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
-        cache_file.write_text(json.dumps(asdict(e), ensure_ascii=False), encoding="utf-8")
+        tmp = cache_file.with_name(f"{cache_file.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(asdict(e), ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, cache_file)  # atomic: concurrent readers see either nothing or a complete file
     return e
 
 
 def enrich_all(tickets: list[Ticket], llm: LLMClient, cache_dir: Path | None,
-               progress: bool = False) -> dict[str, Enrichment]:
-    out = {}
-    for i, t in enumerate(tickets, 1):
-        out[t.ticket_id] = enrich_ticket(t, llm, cache_dir)
-        if progress and i % 25 == 0:
-            print(f"  enriched {i}/{len(tickets)}", flush=True)
+               progress: bool = False, workers: int = 1) -> dict[str, Enrichment]:
+    """One call per ticket; `workers` > 1 sends requests concurrently (Ollama serves several at once when
+    OLLAMA_NUM_PARALLEL allows). Results keep ticket order whatever the completion order."""
+    out: dict[str, Enrichment] = {}
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        for i, (t, e) in enumerate(zip(tickets, pool.map(lambda t: enrich_ticket(t, llm, cache_dir), tickets)), 1):
+            out[t.ticket_id] = e
+            if progress and i % 25 == 0:
+                print(f"  enriched {i}/{len(tickets)}", flush=True)
     return out

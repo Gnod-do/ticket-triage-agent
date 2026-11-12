@@ -72,20 +72,38 @@ def test_stats_ignore_tickets_after_as_of():
     assert s.n_tickets == 3
 
 
-def test_trend_rising():
+def _weekly(counts):
     ts, i = [], 0
-    for week, n in enumerate([2, 2, 5, 6]):
+    for week, n in enumerate(counts):
         for _ in range(n):
             ts.append(mk(i, when=T0 + timedelta(weeks=week, hours=i % 8))[0]); i += 1
-    a = {t.ticket_id: "webneft:0" for t in ts}
-    s = cluster_stats("webneft:0", a, ts, as_of=T0 + timedelta(weeks=4))
-    assert s.trend == "rising"
+    return ts, {t.ticket_id: "webneft:0" for t in ts}
 
 
-def test_trend_stable():
-    ts = [mk(i, when=T0 + timedelta(weeks=w, hours=i + 1))[0] for i, w in enumerate([0, 0, 1, 1, 2, 2, 3, 3])]
-    a = {t.ticket_id: "webneft:0" for t in ts}
-    assert cluster_stats("webneft:0", a, ts, as_of=T0 + timedelta(weeks=4)).trend == "stable"
+def _trend(counts):
+    ts, a = _weekly(counts)
+    return cluster_stats("webneft:0", a, ts, as_of=T0 + timedelta(weeks=len(counts))).trend
+
+
+def test_trend_rising_over_four_week_windows():
+    assert _trend([2, 2, 2, 2, 2, 2, 5, 6]) == "rising"
+
+
+def test_trend_flat_rate_is_stable():
+    assert _trend([2, 2, 2, 2, 2, 2, 2, 2]) == "stable"
+
+
+def test_trend_poisson_noise_is_stable():
+    # 5 then 3 tickets per four weeks is ordinary noise, not a decline
+    assert _trend([1, 2, 1, 1, 1, 0, 1, 1]) == "stable"
+
+
+def test_trend_falling():
+    assert _trend([3, 3, 2, 2, 1, 0, 1, 0]) == "falling"
+
+
+def test_trend_new_topic_is_rising():
+    assert _trend([0, 0, 0, 0, 0, 1, 2, 3]) == "rising"
 
 
 def test_spike_detected_and_baseline_not():
@@ -108,4 +126,25 @@ def test_small_groups_are_noise():
 def test_threshold_controls_merging():
     ts, es, emb, _ = blobs(n_per=6, centers=((1, 0.0, 0), (1, 0.35, 0)))  # ~19° apart: cosine distance ~0.055
     assert len({v for v in cluster_tickets(ts, es, emb, distance_threshold=0.4).values()}) == 1
-    assert len({v for v in cluster_tickets(ts, es, emb, distance_threshold=0.02).values()}) == 2
+    assert len({v for v in cluster_tickets(ts, es, emb, distance_threshold=0.02, merge_threshold=0.0).values()}) == 2
+
+
+def test_centroid_merge_joins_split_topic():
+    ts, es, emb, _ = blobs(n_per=6, centers=((1, 0.0, 0), (1, 0.35, 0)))  # cosine distance ~0.055
+    split = cluster_tickets(ts, es, emb, distance_threshold=0.02, merge_threshold=0.0)
+    merged = cluster_tickets(ts, es, emb, distance_threshold=0.02, merge_threshold=0.1)
+    assert len(set(split.values())) == 2 and len(set(merged.values())) == 1 and "noise" not in merged.values()
+
+
+def test_centroid_merge_keeps_distinct_topics():
+    ts, es, emb, truth = blobs()  # orthogonal centres: distance 1.0
+    a = cluster_tickets(ts, es, emb, distance_threshold=0.4, merge_threshold=0.3)
+    assert len(set(a.values())) == 3
+
+
+def test_centroid_merge_requires_same_feature():
+    ts, es, emb, _ = blobs(n_per=6, centers=((1, 0.0, 0), (1, 0.35, 0)))
+    for t in ts[6:]:
+        es[t.ticket_id].feature = "another"
+    a = cluster_tickets(ts, es, emb, distance_threshold=0.02, merge_threshold=0.1)
+    assert len(set(a.values())) == 2

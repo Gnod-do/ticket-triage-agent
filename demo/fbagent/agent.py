@@ -35,11 +35,21 @@ MAX_REJECTED_SUBMITS = 2
 
 def run_agent_for_cluster(cluster_id: str, toolbox: ToolBox, llm: LLMClient, max_calls: int = 8) -> dict:
     toolbox.current_cluster = cluster_id
-    product = toolbox.get_cluster_stats(cluster_id)["product_id"]
+    # Steps 1–2 are always the same, so the backend runs them and hands the results over:
+    # two fewer model round-trips per cluster, and the model still only sees aliases E1..En.
+    stats = toolbox.get_cluster_stats(cluster_id)
+    examples = toolbox.get_cluster_examples(cluster_id)
+    dump = lambda d: json.dumps(d, ensure_ascii=False, default=str)  # noqa: E731
+    trace = [{"tool": "get_cluster_stats", "args": {"cluster_id": cluster_id}, "result": stats, "prefetched": True},
+             {"tool": "get_cluster_examples", "args": {"cluster_id": cluster_id}, "result": examples,
+              "prefetched": True}]
     messages = [{"role": "system", "content": AGENT_SYSTEM_PROMPT},
-                {"role": "user", "content": f"cluster_id: {cluster_id}\nproduct_id: {product}\n"
-                                            f"Минимум ссылок на обращения: {MIN_EVIDENCE}. Начни с get_cluster_stats."}]
-    schemas, calls, trace, rejected = toolbox.schemas(), 0, [], 0
+                {"role": "user", "content": f"cluster_id: {cluster_id}\nproduct_id: {stats['product_id']}\n"
+                                            f"Минимум ссылок на обращения: {MIN_EVIDENCE}.\n\n"
+                                            f"Шаги 1–2 уже выполнены, результаты ниже. Продолжай с шага 3.\n\n"
+                                            f"get_cluster_stats →\n{dump(stats)}\n\n"
+                                            f"get_cluster_examples →\n{dump(examples)}"}]
+    schemas, calls, rejected = toolbox.schemas(), 0, 0
 
     def done():
         return toolbox.outcomes.get(cluster_id)

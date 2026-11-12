@@ -69,7 +69,7 @@ def test_unknown_tool_name_is_error_not_crash(box):
     llm = FakeLLM([call("drop_database"), call("label_cluster", cluster_id=CID, status="noise"), final()])
     r = run_agent_for_cluster(CID, box, llm)
     assert r["outcome"] == "labeled"
-    assert "неизвестный инструмент" in r["trace"][0]["result"]["error"]
+    assert "неизвестный инструмент" in r["trace"][2]["result"]["error"]  # [0:2] are prefetched reads
 
 
 def test_injection_cannot_bypass_gate(box):
@@ -102,3 +102,13 @@ def test_two_rejected_submits_go_to_review(box):
                   [call("submit_digest_item", cluster_id=CID, draft=bad) for _ in range(3)])
     r = run_agent_for_cluster(CID, box, llm)
     assert r["outcome"] == "review" and r["calls"] == 3 and "PolicyGate" in box.outcomes[CID]["reason"]
+
+
+def test_stats_and_examples_are_prefetched_into_first_message(box):
+    llm = FakeLLM(READS[2:] + [call("submit_digest_item", cluster_id=CID, draft=DRAFT), final()])
+    r = run_agent_for_cluster(CID, box, llm)
+    first_user = llm.calls[0]["messages"][1]["content"]
+    assert '"n_tickets": 7' in first_user and '"ref": "E1"' in first_user
+    assert r["outcome"] == "digest" and r["calls"] == 4
+    assert [x["tool"] for x in r["trace"][:2]] == ["get_cluster_stats", "get_cluster_examples"]
+    assert all(x.get("prefetched") for x in r["trace"][:2])

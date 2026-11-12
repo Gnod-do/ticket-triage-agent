@@ -70,3 +70,24 @@ def test_service_recall_is_none_without_service_tickets():
     ts = [mk(0, None, typ="bug")]
     es = {"T000": Enrichment("T000", "bug", "f", "s", "blocker", 0.9)}
     assert type_scores(ts, es)["service_request_recall"] is None
+
+
+def test_reachable_recall_excludes_topics_below_min_cluster_size():
+    ts = [mk(i, "A") for i in range(5)] + [mk(10, "B")]
+    a = {t.ticket_id: ("p:0" if t.gt_cluster == "A" else "noise") for t in ts}
+    r = cluster_recall(ts, a, min_cluster_size=4)
+    assert r["recall"] == 0.5 and r["recall_reachable"] == 1.0 and r["n_gt_reachable"] == 1
+
+
+def _digest(cid):
+    return DigestItem(cid, "webneft", "t", "s", "5 обращений", [], "Гипотеза: x", "a", "team", "inbox:webneft-product")
+
+
+def test_two_digest_items_on_one_topic_count_as_duplicate(tmp_path):
+    ts = [mk(i, "A") for i in range(10)] + [mk(20 + i, "B") for i in range(5)]
+    es = {t.ticket_id: Enrichment(t.ticket_id, "bug", "f", "s", "blocker", 0.9) for t in ts}
+    a = {t.ticket_id: ("p:0" if i < 5 else "p:1" if i < 10 else "p:2") for i, t in enumerate(ts)}
+    m = evaluate(ts, es, a, {}, [_digest("p:0"), _digest("p:1"), _digest("p:2")], a, [], ["inbox:webneft-product"])
+    assert m["duplicate_digest_items"] == 1
+    write_report(m, tmp_path / "r.md")
+    assert "Дубли тем внутри дайджеста" in (tmp_path / "r.md").read_text(encoding="utf-8")

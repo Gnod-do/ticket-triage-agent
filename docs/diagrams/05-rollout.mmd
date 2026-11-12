@@ -1,7 +1,7 @@
 %% Этапы вывода в эксплуатацию и критерии перехода
 flowchart LR
-  classDef st fill:#eaf4ff,stroke:#3d76a2,color:#1e3554
-  classDef gate fill:#fff2d9,stroke:#a66b17,color:#4d3210
+  classDef st fill:#E6EEF5,stroke:#10314C,color:#10314C,stroke-width:1.5px
+  classDef gate fill:#FDEBE1,stroke:#F56A2B,color:#5A2A10,stroke-width:1.5px
 
   A["Офлайн-оценка<br/>golden set ≈ 800 обращений<br/>бэктест за 1 год"]:::st --> G1{{"Пороги §4.2<br/>Qwen > BM25"}}:::gate
   G1 --> B["Shadow · 4 недели<br/>Вебнефть<br/>дайджест только ревьюеру"]:::st

@@ -17,6 +17,7 @@ from .models import ClusterStats, DigestItem, Enrichment, Ticket
 from .pii import mask_pii
 
 MIN_EVIDENCE = 5
+EXAMPLES_K = 8  # more examples than required references, so the model has to choose
 BACKLOG_MATCH_MIN = 0.5
 LABEL_STATUSES = ("noise", "service_request")
 DRAFT_TEXT_FIELDS = ("title", "summary", "scale_text", "hypothesis", "action")
@@ -91,7 +92,7 @@ class ToolBox:
                 "top_features": self._top_features(s.ticket_ids),
                 "channels": dict(Counter(self.by_id[i].channel for i in s.ticket_ids))}
 
-    def get_cluster_examples(self, cluster_id: str, k: int = 5) -> dict:
+    def get_cluster_examples(self, cluster_id: str, k: int = EXAMPLES_K) -> dict:
         s = self._stats(cluster_id)
         members = sorted((self.by_id[i] for i in s.ticket_ids), key=lambda t: t.ingested_at, reverse=True)
         seen, picked = set(), []

@@ -42,3 +42,19 @@ def test_tornado_writes_png(tmp_path):
     out = tmp_path / "t.png"
     order = tornado(base, out)
     assert out.stat().st_size > 1000 and len(order) >= 5
+
+
+def test_b1_only_ceiling_reported(tmp_path):
+    from fbagent.finance import write_report
+    rows = scenarios(ASSUMPTIONS)
+    base = next(r for r in rows if r["name"] == "base")
+    assert 0 < base["max_capex_b1_only"] < base["max_capex"]
+    write_report(rows, tmp_path / "f.md")
+    assert "только B1" in (tmp_path / "f.md").read_text(encoding="utf-8")
+
+
+def test_scenarios_chart_writes_png(tmp_path):
+    from fbagent.finance import scenarios_chart
+    out = tmp_path / "s.png"
+    scenarios_chart(scenarios(ASSUMPTIONS), out)
+    assert out.stat().st_size > 1000

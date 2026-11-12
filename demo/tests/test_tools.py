@@ -151,3 +151,7 @@ def test_long_query_still_matches_backlog(box):
     assert hits and hits[0]["key"] == "FC-118"
     assert box.search_backlog("fuel_cards", "отчёт расход топлива не совпадает")["issues"] == []
     assert box.search_backlog("fuel_cards", "установить лимиты по видам топлива")["issues"] == []
+
+
+def test_examples_default_k_is_eight(box):
+    assert len(box.get_cluster_examples("webneft:0")["examples"]) == 8
