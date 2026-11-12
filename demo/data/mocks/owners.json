@@ -1,8 +1,0 @@
-{
-  "allowlist": ["inbox:webneft-product", "inbox:webneft-access", "inbox:fuel-cards-product"],
-  "owners": [
-    {"product_id": "webneft", "feature": "*", "team": "Вебнефть — продуктовая команда", "channel": "inbox:webneft-product"},
-    {"product_id": "webneft", "feature": "account_access", "team": "Вебнефть — команда доступа и авторизации", "channel": "inbox:webneft-access"},
-    {"product_id": "fuel_cards", "feature": "*", "team": "Топливные карты — продуктовая команда", "channel": "inbox:fuel-cards-product"}
-  ]
-}

@@ -1,4 +1,0 @@
-[
-  {"key": "WEB-412", "gt_cluster": "webneft_sms_code", "product_id": "webneft", "title": "Не приходит SMS-код при восстановлении пароля в личном кабинете", "status": "open", "created_at": "2026-09-21T09:00:00+00:00"},
-  {"key": "FC-118", "gt_cluster": "fuel_cards_blocked", "product_id": "fuel_cards", "title": "Самопроизвольная блокировка топливных карт", "status": "open", "created_at": "2026-10-05T09:00:00+00:00"}
-]
